@@ -1,0 +1,6 @@
+/* PradyotAI - Global App Styles */
+
+.app {
+  min-height: 100vh;
+  background: var(--navy);
+}

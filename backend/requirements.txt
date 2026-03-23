@@ -1,0 +1,13 @@
+# PradyotAI Backend Dependencies
+# Core framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# AI Integration - Groq (fast, free inference)
+groq>=0.4.0
+
+# Database - Supabase client
+supabase>=2.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0

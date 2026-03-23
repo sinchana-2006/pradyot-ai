@@ -1,0 +1,53 @@
+/**
+ * PradyotAI - Global Styles & Color Palette
+ * Warm, welcoming Indian learning companion aesthetic
+ * Font: Nunito (friendly, rounded - perfect for kids)
+ */
+
+:root {
+  /* Primary palette */
+  --navy: #0D1117;
+  --navy-dark: #0F2044;
+  --saffron: #FF6B00;
+  --saffron-gold: #FF8C00;
+  --golden: #FFB347;
+  --white: #FFFFFF;
+
+  /* Chat & cards */
+  --card-dark: #1A2744;
+  --surface: #161b22;
+  --border: #30363d;
+  --text-muted: #8b949e;
+
+  /* Glow effects */
+  --glow-saffron: 0 0 12px rgba(255, 107, 0, 0.4);
+  --glow-saffron-strong: 0 0 20px rgba(255, 107, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  background: var(--navy);
+  color: var(--white);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--saffron);
+}
+
+/* Mobile-safe viewport */
+@supports (height: 100dvh) {
+  html, body {
+    min-height: 100dvh;
+  }
+}
