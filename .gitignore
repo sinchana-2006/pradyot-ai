@@ -1,3 +1,41 @@
+# ─────────────────────────────────────────────
+# NODE.JS / FRONTEND
+# ─────────────────────────────────────────────
+node_modules/
+dist/
+.next/
+out/
+build/
+.nuxt/
+.output/
+.cache/
+.parcel-cache/
+.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Environment files (frontend)
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# ─────────────────────────────────────────────
+# PYTHON / BACKEND
+# ─────────────────────────────────────────────
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -143,6 +181,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Backend env files
+backend/.env
+backend/.env.local
+backend/.env.production
 
 # Spyder project settings
 .spyderproject
