@@ -5,9 +5,9 @@ pydantic-settings==2.6.1
 python-dotenv==1.0.1
 supabase==2.10.0
 httpx==0.28.1
-python-jose[cryptography]==3.3.0
+python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.20
+python-multipart==0.0.22
 groq==0.13.1
 google-generativeai==0.8.3
 slowapi==0.1.9
