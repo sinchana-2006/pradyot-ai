@@ -9,6 +9,18 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Optional imports — only loaded when the corresponding API key is configured.
+# Wrapped in try/except so the app starts even if a package is somehow missing.
+try:
+    from groq import Groq as GroqClient
+except ImportError:  # pragma: no cover
+    GroqClient = None  # type: ignore
+
+try:
+    import google.generativeai as genai
+except ImportError:  # pragma: no cover
+    genai = None  # type: ignore
+
 
 class AIService:
     """
@@ -92,9 +104,10 @@ Respond in {language}.
 
     async def _call_groq(self, system_prompt: str, message: str) -> dict:
         """Call the Groq API (Llama 3.3 70B)."""
-        from groq import Groq  # lazy import to avoid startup errors when key is absent
+        if GroqClient is None:
+            raise RuntimeError("groq package is not installed.")
 
-        client = Groq(api_key=settings.GROQ_API_KEY)
+        client = GroqClient(api_key=settings.GROQ_API_KEY)
         completion = client.chat.completions.create(
             model=settings.GROQ_MODEL,
             messages=[
@@ -109,7 +122,8 @@ Respond in {language}.
 
     async def _call_gemini(self, system_prompt: str, message: str) -> dict:
         """Call the Google Gemini API as a fallback."""
-        import google.generativeai as genai  # lazy import
+        if genai is None:
+            raise RuntimeError("google-generativeai package is not installed.")
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
         model = genai.GenerativeModel(

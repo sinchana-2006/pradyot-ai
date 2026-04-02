@@ -224,8 +224,8 @@ function ChatPage() {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
+        {messages.map((msg) => (
+          <MessageBubble key={msg._id} message={msg} />
         ))}
 
         {loading && <TypingIndicator />}

@@ -3,6 +3,7 @@ Session Service — manages conversation context and XP calculation.
 """
 
 import logging
+from datetime import date
 from app.db.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,6 @@ class SessionService:
                 stats["xp"] = stats.get("xp", 0) + xp
                 subject_stats[subject] = stats
 
-                from datetime import date
                 db.table("student_progress").update(
                     {
                         "xp_total": (row.get("xp_total") or 0) + xp,
@@ -89,16 +89,20 @@ class SessionService:
                     }
                 ).eq("student_id", student_id).execute()
             else:
-                # Create progress row
-                from datetime import date
+                # Create progress row with all default fields
                 db.table("student_progress").insert(
                     {
                         "student_id": student_id,
                         "xp_total": xp,
                         "xp_this_week": xp,
+                        "xp_this_month": xp,
+                        "study_streak_days": 0,
+                        "total_sessions": 0,
                         "total_messages": 1,
                         "last_active_date": date.today().isoformat(),
                         "subject_stats": {subject: {"sessions": 0, "xp": xp}},
+                        "weak_topics": [],
+                        "strong_topics": [],
                     }
                 ).execute()
         except Exception as exc:

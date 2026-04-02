@@ -147,6 +147,9 @@ async def send_message(
             detail=f"AI service unavailable: {exc}",
         )
 
+    # Calculate XP before persisting so the stored value matches progress
+    xp_earned = session_service.calculate_xp(session.get("message_count", 0) + 1)
+
     now = datetime.now(timezone.utc).isoformat()
     message_id = str(uuid.uuid4())
 
@@ -166,7 +169,7 @@ async def send_message(
                     "role": "assistant",
                     "content": ai_result["response"],
                     "language": request.language,
-                    "xp_awarded": 2,
+                    "xp_awarded": xp_earned,
                 },
             ]
         ).execute()
@@ -177,7 +180,6 @@ async def send_message(
         )
 
     # Update session message count + XP
-    xp_earned = session_service.calculate_xp(session.get("message_count", 0) + 1)
     try:
         db.table("chat_sessions").update(
             {

@@ -53,13 +53,24 @@ async def create_or_update_profile(
 
     row = result.data[0]
 
-    # Ensure a student_progress row exists for this profile
+    # Ensure a student_progress row exists for this profile (with all default fields)
     try:
         db.table("student_progress").upsert(
-            {"student_id": row["id"]}, on_conflict="student_id"
+            {
+                "student_id": row["id"],
+                "xp_total": 0,
+                "xp_this_week": 0,
+                "study_streak_days": 0,
+                "total_sessions": 0,
+                "total_messages": 0,
+                "subject_stats": {},
+                "weak_topics": [],
+                "strong_topics": [],
+            },
+            on_conflict="student_id",
         ).execute()
     except Exception:
-        pass  # Non-critical — progress row will be created on first chat
+        pass  # Non-critical — will be created on first chat interaction
 
     return StudentProfileResponse(
         profile_id=row["id"],
