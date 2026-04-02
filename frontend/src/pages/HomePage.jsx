@@ -1,8 +1,20 @@
 /**
- * Home Page — Landing page for Pradyot AI
- * TODO (Phase 1): Add auth check and redirect to /chat if logged in
+ * Home Page — Landing page for Pradyot AI.
+ * Redirects to /chat if the user is already authenticated.
  */
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { authService } from '../services/authService'
+
 function HomePage() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      navigate('/chat', { replace: true })
+    }
+  }, [navigate])
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-orange-50 to-white">
       <div className="max-w-2xl text-center">
@@ -17,20 +29,20 @@ function HomePage() {
         </p>
         <div className="flex gap-4 justify-center">
           <a
-            href="/onboarding"
+            href="/login"
             className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
           >
             Get Started
           </a>
           <a
-            href="/chat"
+            href="/login"
             className="border border-orange-500 text-orange-500 px-6 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors"
           >
-            Start Learning
+            Sign In
           </a>
         </div>
         <p className="mt-8 text-sm text-gray-400">
-          Phase 0 — Foundation setup complete. Full features coming in Phase 1.
+          Supports CBSE, ICSE &amp; State Boards • Classes 1–10
         </p>
       </div>
     </div>
