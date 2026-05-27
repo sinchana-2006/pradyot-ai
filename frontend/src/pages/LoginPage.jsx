@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService } from '../services/authService'
 import useAppStore from '../store/useAppStore'
@@ -13,6 +13,31 @@ function LoginPage() {
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function bootstrapOAuthSession() {
+      const appUser = authService.getUserFromAppToken()
+      if (appUser?.id) {
+        setUser(appUser)
+        navigate('/chat', { replace: true })
+        return
+      }
+
+      const supabaseSession = await authService.getSupabaseSession()
+      const oauthToken = supabaseSession?.access_token
+      if (!oauthToken) return
+
+      try {
+        const data = await authService.exchangeGoogleAccessToken(oauthToken)
+        setUser({ id: data.user_id, email: supabaseSession.user?.email || null })
+        navigate('/chat', { replace: true })
+      } catch {
+        // Keep user on login page and show manual action prompt.
+        setError('Google sign-in completed, but token exchange failed. Please try again.')
+      }
+    }
+    bootstrapOAuthSession()
+  }, [navigate, setUser])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -36,6 +61,17 @@ function LoginPage() {
         (mode === 'login' ? 'Login failed. Check your credentials.' : 'Registration failed. Try again.')
       setError(msg)
     } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setError('')
+    setLoading(true)
+    try {
+      await authService.signInWithGoogle(`${window.location.origin}/login`)
+    } catch (err) {
+      setError(err.message || 'Google login failed.')
       setLoading(false)
     }
   }
@@ -112,6 +148,17 @@ function LoginPage() {
               : 'Create Account'}
           </button>
         </form>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            Continue with Google
+          </button>
+        </div>
 
         <p className="text-center text-sm text-gray-500 mt-4">
           {mode === 'login' ? (

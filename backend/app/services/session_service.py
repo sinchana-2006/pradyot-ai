@@ -95,7 +95,6 @@ class SessionService:
                         "student_id": student_id,
                         "xp_total": xp,
                         "xp_this_week": xp,
-                        "xp_this_month": xp,
                         "study_streak_days": 0,
                         "total_sessions": 0,
                         "total_messages": 1,

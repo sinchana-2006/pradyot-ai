@@ -3,6 +3,7 @@ Application configuration — reads from environment variables.
 """
 
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from typing import List
 
 
@@ -35,12 +36,29 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173"]
 
+    # Rate limits
+    RATE_LIMIT_CHAT: str = "30/minute"
+    RATE_LIMIT_DEFAULT: str = "120/minute"
+
     # Logging
     LOG_LEVEL: str = "INFO"
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return []
+            # Accept JSON list format OR comma-separated env string.
+            if value.startswith("["):
+                return value
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
     @property
     def is_production(self) -> bool:
