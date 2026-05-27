@@ -40,13 +40,13 @@ app.include_router(pyq.router,       prefix=f"{API_PREFIX}/pyq",       tags=["PY
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Health"])
 async def health_check():
-    db_ok, db_message = check_db_connection()
+    db_ok, _ = check_db_connection()
     return {
         "status": "ok" if db_ok else "degraded",
         "version": settings.APP_VERSION,
         "database": {
             "status": "ok" if db_ok else "error",
-            "message": db_message,
+            "message": "ok" if db_ok else "connection unavailable",
         },
     }
 
