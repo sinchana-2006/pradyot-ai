@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api import auth, chat, students, subjects, progress, pyq
+from app.db.database import check_db_connection
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -39,7 +40,15 @@ app.include_router(pyq.router,       prefix=f"{API_PREFIX}/pyq",       tags=["PY
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {"status": "ok", "version": settings.APP_VERSION}
+    db_ok, db_message = check_db_connection()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "version": settings.APP_VERSION,
+        "database": {
+            "status": "ok" if db_ok else "error",
+            "message": db_message,
+        },
+    }
 
 
 @app.get("/", tags=["Root"])
