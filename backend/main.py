@@ -2,11 +2,24 @@
 Pradyot AI — FastAPI Application Entry Point
 """
 
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api import auth, chat, students, subjects, progress, pyq
+from app.db.database import check_db_connection
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    ensure_db_ready_on_startup()
+    yield
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -14,6 +27,7 @@ app = FastAPI(
     description="AI-powered personal mentor for Indian students (Class 1–10)",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
@@ -36,10 +50,25 @@ app.include_router(progress.router,  prefix=f"{API_PREFIX}/progress",  tags=["Pr
 app.include_router(pyq.router,       prefix=f"{API_PREFIX}/pyq",       tags=["PYQ"])
 
 
+def ensure_db_ready_on_startup() -> None:
+    db_ok, _ = check_db_connection()
+    if not db_ok:
+        raise RuntimeError("Database connection failed during startup.")
+    logger.info("Database connection verified at startup.")
+
+
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {"status": "ok", "version": settings.APP_VERSION}
+    db_ok, _ = check_db_connection()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "version": settings.APP_VERSION,
+        "database": {
+            "status": "ok" if db_ok else "error",
+            "message": "ok" if db_ok else "connection unavailable",
+        },
+    }
 
 
 @app.get("/", tags=["Root"])

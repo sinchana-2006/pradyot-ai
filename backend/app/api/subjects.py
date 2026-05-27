@@ -4,31 +4,12 @@ Subjects route — list available subjects by class and board.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.dependencies import get_current_user_id
+from app.db.database import get_db
 
 router = APIRouter()
 
-# Static subject data for Phase 0 — will be driven by DB in Phase 1
-SUBJECTS_BY_CLASS = {
-    range(1, 4): ["English", "Mathematics", "Environmental Studies", "Hindi"],
-    range(4, 6): ["English", "Mathematics", "Science", "Social Studies", "Hindi"],
-    range(6, 9): ["English", "Mathematics", "Science", "Social Studies", "Hindi", "Sanskrit"],
-    range(9, 11): [
-        "English",
-        "Mathematics",
-        "Science",
-        "Social Science",
-        "Hindi",
-        "Sanskrit",
-        "Information Technology",
-    ],
-}
-
-
-def get_subjects_for_class(class_level: int) -> list[str]:
-    for class_range, subjects in SUBJECTS_BY_CLASS.items():
-        if class_level in class_range:
-            return subjects
-    return []
+def _slugify_subject(subject: str) -> str:
+    return subject.lower().strip().replace(" ", "_")
 
 
 @router.get("")
@@ -39,18 +20,71 @@ async def list_subjects(
 ):
     """
     Get available subjects for a class level.
-
-    Returns static subject list for Phase 0.
-    TODO (Phase 1): Drive from database with board-specific curricula.
     """
     if class_level < 1 or class_level > 10:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="class_level must be between 1 and 10",
         )
-    subjects = get_subjects_for_class(class_level)
+
+    db = get_db()
+    selected_board = board
+    if not selected_board:
+        try:
+            profile_result = (
+                db.table("student_profiles")
+                .select("board")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            profile_rows = profile_result.data or []
+            if profile_rows:
+                selected_board = profile_rows[0].get("board")
+        except Exception:
+            selected_board = None
+
+    selected_board = selected_board or "CBSE"
+
+    try:
+        pyq_result = (
+            db.table("pyq_questions")
+            .select("subject")
+            .eq("class_level", class_level)
+            .eq("board", selected_board)
+            .execute()
+        )
+        subject_rows = pyq_result.data or []
+        subjects = sorted(
+            {
+                row["subject"].strip()
+                for row in subject_rows
+                if row.get("subject") and row["subject"].strip()
+            }
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load subjects: {exc}",
+        )
+
+    # Fallback to student's own selected subjects if no PYQ subject metadata exists yet.
+    if not subjects:
+        try:
+            profile_subjects_result = (
+                db.table("student_profiles")
+                .select("subjects")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            rows = profile_subjects_result.data or []
+            subjects = sorted(rows[0].get("subjects") or []) if rows else []
+        except Exception:
+            subjects = []
+
     return {
         "class_level": class_level,
-        "board": board or "CBSE",
-        "subjects": [{"subject_id": s.lower().replace(" ", "_"), "name": s} for s in subjects],
+        "board": selected_board,
+        "subjects": [{"subject_id": _slugify_subject(s), "name": s} for s in subjects],
     }

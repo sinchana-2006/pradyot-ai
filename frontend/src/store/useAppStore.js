@@ -1,8 +1,9 @@
 /**
  * Global app state — Zustand store
- * TODO (Phase 1): Expand with session state and real data
  */
 import { create } from 'zustand'
+
+let _msgCounter = 0
 
 const useAppStore = create((set) => ({
   // Auth
@@ -18,10 +19,12 @@ const useAppStore = create((set) => ({
   currentSessionId: null,
   setCurrentSessionId: (id) => set({ currentSessionId: id }),
 
-  // Messages for current session
+  // Messages for current session — each message has a stable numeric _id
   messages: [],
   addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+    set((state) => ({
+      messages: [...state.messages, { ...message, _id: ++_msgCounter }],
+    })),
   clearMessages: () => set({ messages: [] }),
 
   // XP and gamification

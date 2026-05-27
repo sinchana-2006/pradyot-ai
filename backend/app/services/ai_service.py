@@ -2,8 +2,24 @@
 AI Service — wraps Groq (primary) with Gemini fallback.
 """
 
+import logging
 from typing import Optional
+
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Optional imports — only loaded when the corresponding API key is configured.
+# Wrapped in try/except so the app starts even if a package is somehow missing.
+try:
+    from groq import Groq as GroqClient
+except ImportError:  # pragma: no cover
+    GroqClient = None  # type: ignore
+
+try:
+    import google.generativeai as genai
+except ImportError:  # pragma: no cover
+    genai = None  # type: ignore
 
 
 class AIService:
@@ -12,8 +28,6 @@ class AIService:
 
     Primary:  Groq API (Llama 3.3 70B)
     Fallback: Google Gemini 1.5 Flash
-
-    TODO (Phase 1): Implement actual API calls.
     """
 
     SYSTEM_PROMPT_TEMPLATE = """
@@ -54,12 +68,90 @@ Respond in {language}.
         """
         Get an AI response for the student's message.
 
+        Tries Groq first; falls back to Gemini on any error.
+
         Returns:
             dict with 'response' and 'follow_up_question' keys.
-
-        TODO (Phase 1): Implement Groq + Gemini API calls.
         """
-        raise NotImplementedError("AI service not yet implemented — Phase 1")
+        system_prompt = self._build_system_prompt(
+            student_name=student_name,
+            class_level=class_level,
+            board=board,
+            language=language,
+            subject=subject,
+            weak_topics=", ".join(weak_topics) if weak_topics else "None identified yet",
+            context=context or "This is the start of the conversation.",
+        )
+
+        # Try Groq first
+        if settings.GROQ_API_KEY:
+            try:
+                return await self._call_groq(system_prompt, message)
+            except Exception as exc:
+                logger.warning("Groq API failed, falling back to Gemini: %s", exc)
+
+        # Fall back to Gemini
+        if settings.GEMINI_API_KEY:
+            try:
+                return await self._call_gemini(system_prompt, message)
+            except Exception as exc:
+                logger.error("Gemini API also failed: %s", exc)
+                raise
+
+        raise RuntimeError(
+            "No AI API keys configured. Please set GROQ_API_KEY or GEMINI_API_KEY."
+        )
+
+    async def _call_groq(self, system_prompt: str, message: str) -> dict:
+        """Call the Groq API (Llama 3.3 70B)."""
+        if GroqClient is None:
+            raise RuntimeError("groq package is not installed.")
+
+        client = GroqClient(api_key=settings.GROQ_API_KEY)
+        completion = client.chat.completions.create(
+            model=settings.GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+            temperature=0.7,
+            max_tokens=512,
+        )
+        text = completion.choices[0].message.content or ""
+        return self._parse_response(text)
+
+    async def _call_gemini(self, system_prompt: str, message: str) -> dict:
+        """Call the Google Gemini API as a fallback."""
+        if genai is None:
+            raise RuntimeError("google-generativeai package is not installed.")
+
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(
+            model_name=settings.GEMINI_MODEL,
+            system_instruction=system_prompt,
+        )
+        response = model.generate_content(message)
+        text = response.text or ""
+        return self._parse_response(text)
+
+    def _parse_response(self, text: str) -> dict:
+        """
+        Split the AI response into main content and follow-up question.
+        The last sentence ending with '?' is treated as the follow-up.
+        """
+        text = text.strip()
+        sentences = [s.strip() for s in text.replace("?", "?\n").split("\n") if s.strip()]
+
+        follow_up: Optional[str] = None
+        if sentences and sentences[-1].endswith("?"):
+            follow_up = sentences[-1]
+            response_body = text[: text.rfind(follow_up)].strip()
+            if not response_body:
+                response_body = text
+        else:
+            response_body = text
+
+        return {"response": response_body, "follow_up_question": follow_up}
 
     def _build_system_prompt(self, **kwargs) -> str:
         return self.SYSTEM_PROMPT_TEMPLATE.format(**kwargs)

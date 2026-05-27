@@ -1,8 +1,51 @@
 /**
- * Onboarding Page — Student profile creation
- * TODO (Phase 1): Connect to backend /api/v1/students/profile endpoint
+ * Onboarding Page — Student profile creation.
+ * Saves to backend /api/v1/students/profile and redirects to /chat.
  */
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { studentService } from '../services/studentService'
+import useAppStore from '../store/useAppStore'
+
+const LANGUAGES = ['English', 'Hindi', 'Kannada', 'Tamil', 'Telugu', 'Marathi', 'Bengali']
+const BOARDS = ['CBSE', 'ICSE', 'State Board']
+
 function OnboardingPage() {
+  const navigate = useNavigate()
+  const setProfile = useAppStore((s) => s.setProfile)
+
+  const [fullName, setFullName] = useState('')
+  const [classLevel, setClassLevel] = useState('')
+  const [board, setBoard] = useState('CBSE')
+  const [language, setLanguage] = useState('English')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const profile = await studentService.createOrUpdateProfile({
+        full_name: fullName,
+        class_level: parseInt(classLevel, 10),
+        board,
+        preferred_language: language,
+        subjects: [],
+      })
+      setProfile(profile)
+      navigate('/chat')
+    } catch (err) {
+      const msg =
+        err.response?.data?.detail ||
+        'Failed to save profile. Please try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-b from-orange-50 to-white">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-6">
@@ -11,7 +54,13 @@ function OnboardingPage() {
           Tell me a bit about yourself so I can personalize your learning
         </p>
 
-        <form className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Your Name
@@ -19,8 +68,10 @@ function OnboardingPage() {
             <input
               type="text"
               placeholder="e.g. Arjun"
-              disabled
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
           </div>
 
@@ -29,12 +80,16 @@ function OnboardingPage() {
               Class
             </label>
             <select
-              disabled
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+              value={classLevel}
+              onChange={(e) => setClassLevel(e.target.value)}
+              required
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
             >
-              <option>Select class</option>
+              <option value="">Select class</option>
               {[...Array(10)].map((_, i) => (
-                <option key={i + 1}>Class {i + 1}</option>
+                <option key={i + 1} value={i + 1}>
+                  Class {i + 1}
+                </option>
               ))}
             </select>
           </div>
@@ -44,12 +99,13 @@ function OnboardingPage() {
               Board
             </label>
             <select
-              disabled
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+              value={board}
+              onChange={(e) => setBoard(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
             >
-              <option>CBSE</option>
-              <option>ICSE</option>
-              <option>State Board</option>
+              {BOARDS.map((b) => (
+                <option key={b}>{b}</option>
+              ))}
             </select>
           </div>
 
@@ -58,26 +114,24 @@ function OnboardingPage() {
               Preferred Language
             </label>
             <select
-              disabled
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
             >
-              <option>English</option>
-              <option>Hindi</option>
+              {LANGUAGES.map((l) => (
+                <option key={l}>{l}</option>
+              ))}
             </select>
           </div>
 
           <button
-            type="button"
-            disabled
-            className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold opacity-50 cursor-not-allowed"
+            type="submit"
+            disabled={loading}
+            className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Start Learning →
+            {loading ? 'Saving…' : 'Start Learning →'}
           </button>
         </form>
-
-        <p className="text-center text-xs text-gray-400 mt-4">
-          Onboarding form — full implementation in Phase 1
-        </p>
       </div>
     </div>
   )
