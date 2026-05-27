@@ -2,12 +2,16 @@
 Pradyot AI — FastAPI Application Entry Point
 """
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api import auth, chat, students, subjects, progress, pyq
 from app.db.database import check_db_connection
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -35,6 +39,18 @@ app.include_router(chat.router,      prefix=f"{API_PREFIX}/chat",      tags=["Ch
 app.include_router(subjects.router,  prefix=f"{API_PREFIX}/subjects",  tags=["Subjects"])
 app.include_router(progress.router,  prefix=f"{API_PREFIX}/progress",  tags=["Progress"])
 app.include_router(pyq.router,       prefix=f"{API_PREFIX}/pyq",       tags=["PYQ"])
+
+
+def ensure_db_ready_on_startup() -> None:
+    db_ok, _ = check_db_connection()
+    if not db_ok:
+        raise RuntimeError("Database connection failed during startup.")
+    logger.info("Database connection verified at startup.")
+
+
+@app.on_event("startup")
+async def startup_event():
+    ensure_db_ready_on_startup()
 
 
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
