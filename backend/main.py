@@ -3,6 +3,7 @@ Pradyot AI — FastAPI Application Entry Point
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,12 +14,20 @@ from app.db.database import check_db_connection
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    ensure_db_ready_on_startup()
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="AI-powered personal mentor for Indian students (Class 1–10)",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
@@ -46,11 +55,6 @@ def ensure_db_ready_on_startup() -> None:
     if not db_ok:
         raise RuntimeError("Database connection failed during startup.")
     logger.info("Database connection verified at startup.")
-
-
-@app.on_event("startup")
-async def startup_event():
-    ensure_db_ready_on_startup()
 
 
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
