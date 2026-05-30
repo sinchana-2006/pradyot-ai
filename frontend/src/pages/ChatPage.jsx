@@ -42,8 +42,9 @@ function ChatPage() {
   const handleSend = async () => {
     if (!input.trim() || !sessionId || loading) return
     const message = input.trim()
+    const pendingId = crypto.randomUUID()
     setInput('')
-    setMessages((prev) => [...prev, { message_id: crypto.randomUUID(), role: 'student', content: message }])
+    setMessages((prev) => [...prev, { message_id: pendingId, role: 'student', content: message }])
     setLoading(true)
     setError('')
     try {
@@ -57,6 +58,7 @@ function ChatPage() {
         },
       ])
     } catch (sendError) {
+      setMessages((prev) => prev.filter((item) => item.message_id !== pendingId))
       setError(sendError?.response?.data?.detail || 'Unable to send message')
     } finally {
       setLoading(false)

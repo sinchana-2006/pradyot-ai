@@ -7,8 +7,15 @@ from app.services.session_service import SessionService
 @pytest.mark.asyncio
 async def test_ai_service_returns_fallback_when_no_keys(monkeypatch):
     service = AIService()
-    monkeypatch.setattr(service, "_call_groq", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError()))
-    monkeypatch.setattr(service, "_call_gemini", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError()))
+
+    async def fail_groq(**_kwargs):
+        raise RuntimeError()
+
+    async def fail_gemini(**_kwargs):
+        raise RuntimeError()
+
+    monkeypatch.setattr(service, "_call_groq", fail_groq)
+    monkeypatch.setattr(service, "_call_gemini", fail_gemini)
 
     result = await service.get_response(
         student_name="Aarav",

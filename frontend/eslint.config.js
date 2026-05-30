@@ -28,12 +28,22 @@ export default [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      'react/jsx-uses-react': 'error',
+      'react/jsx-uses-vars': 'error',
       'react/react-in-jsx-scope': 'off',
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
     settings: {
       react: {
         version: 'detect',
+      },
+    },
+  },
+  {
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
       },
     },
   },

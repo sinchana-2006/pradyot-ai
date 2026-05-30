@@ -3,6 +3,7 @@ AI Service — wraps Groq (primary) with Gemini fallback.
 """
 
 import asyncio
+from typing import Optional
 from app.core.config import settings
 from groq import Groq
 import google.generativeai as genai
@@ -75,7 +76,7 @@ Respond in {language}.
             raise RuntimeError("Empty Gemini response")
         return text.strip()
 
-    def _extract_follow_up_question(self, text: str) -> str | None:
+    def _extract_follow_up_question(self, text: str) -> Optional[str]:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         for line in reversed(lines):
             if "?" in line:

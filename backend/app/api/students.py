@@ -3,6 +3,7 @@ Student profile routes.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
 from app.models.students import StudentProfileRequest, StudentProfileResponse
 from app.core.dependencies import get_current_user_id
 from app.db.database import get_db
@@ -10,7 +11,9 @@ from app.db.database import get_db
 router = APIRouter()
 
 
-def _build_profile_response(profile: dict, xp_total: int = 0, badges: list[str] | None = None):
+def _build_profile_response(
+    profile: dict, xp_total: int = 0, badges: Optional[List[str]] = None
+):
     return StudentProfileResponse(
         profile_id=profile["id"],
         full_name=profile["full_name"],

@@ -45,6 +45,10 @@ function OnboardingPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!form.class_level || form.class_level < 1 || form.class_level > 10) {
+      setError('Please select a valid class')
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -88,6 +92,7 @@ function OnboardingPage() {
               value={form.class_level}
               onChange={(event) => updateField('class_level', Number(event.target.value))}
               className="w-full border rounded-lg px-3 py-2 text-sm"
+              required
             >
               <option value="">Select class</option>
               {[...Array(10)].map((_, i) => (
