@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { chatService } from '../services/chatService'
 
@@ -16,7 +16,7 @@ function ChatPage() {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [error, setError] = useState('')
 
-  const loadSessions = async (subjectName, preferredSessionId = null) => {
+  const loadSessions = useCallback(async (subjectName, preferredSessionId = null) => {
     const sessionsResponse = await chatService.getSessions(1, 20, subjectName)
     const fetchedSessions = sessionsResponse.sessions || []
     setSessions(fetchedSessions)
@@ -25,7 +25,7 @@ function ChatPage() {
       if (found) return found
     }
     return fetchedSessions[0]
-  }
+  }, [])
 
   const loadMessages = async (targetSessionId) => {
     setLoadingMessages(true)
@@ -37,7 +37,7 @@ function ChatPage() {
     }
   }
 
-  const createSession = async (subjectName) => {
+  const createSession = useCallback(async (subjectName) => {
     const created = await chatService.startSession(subjectName)
     setSessionId(created.session_id)
     setMessages([
@@ -48,7 +48,7 @@ function ChatPage() {
       },
     ])
     await loadSessions(subjectName, created.session_id)
-  }
+  }, [loadSessions])
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -68,7 +68,7 @@ function ChatPage() {
       }
     }
     bootstrap()
-  }, [selectedSubject])
+  }, [selectedSubject, loadSessions, createSession])
 
   const handleSelectSession = async (targetSessionId) => {
     if (!targetSessionId || targetSessionId === sessionId || loadingMessages) return
