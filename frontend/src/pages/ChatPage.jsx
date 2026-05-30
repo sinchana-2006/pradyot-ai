@@ -2,42 +2,97 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { chatService } from '../services/chatService'
 
+const SUBJECTS = ['Mathematics', 'Science', 'English', 'Social Science', 'Hindi']
+
 function ChatPage() {
   const { subject } = useParams()
   const [sessionId, setSessionId] = useState(null)
   const [selectedSubject, setSelectedSubject] = useState(subject || 'Mathematics')
+  const [sessions, setSessions] = useState([])
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [loadingMessages, setLoadingMessages] = useState(false)
   const [error, setError] = useState('')
+
+  const loadSessions = async (subjectName, preferredSessionId = null) => {
+    const sessionsResponse = await chatService.getSessions(1, 20, subjectName)
+    const fetchedSessions = sessionsResponse.sessions || []
+    setSessions(fetchedSessions)
+    if (preferredSessionId) {
+      const found = fetchedSessions.find((item) => item.session_id === preferredSessionId)
+      if (found) return found
+    }
+    return fetchedSessions[0]
+  }
+
+  const loadMessages = async (targetSessionId) => {
+    setLoadingMessages(true)
+    try {
+      const history = await chatService.getSessionMessages(targetSessionId)
+      setMessages(history.messages || [])
+    } finally {
+      setLoadingMessages(false)
+    }
+  }
+
+  const createSession = async (subjectName) => {
+    const created = await chatService.startSession(subjectName)
+    setSessionId(created.session_id)
+    setMessages([
+      {
+        message_id: `intro-${created.session_id}`,
+        role: 'assistant',
+        content: `Namaste! Let's learn ${subjectName} together. What would you like to start with?`,
+      },
+    ])
+    await loadSessions(subjectName, created.session_id)
+  }
 
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const sessionsResponse = await chatService.getSessions(1, 1, selectedSubject)
-        const latestSession = sessionsResponse.sessions?.[0]
+        setLoadingSessions(true)
+        const latestSession = await loadSessions(selectedSubject)
         if (latestSession?.session_id) {
           setSessionId(latestSession.session_id)
-          const history = await chatService.getSessionMessages(latestSession.session_id)
-          setMessages(history.messages || [])
+          await loadMessages(latestSession.session_id)
           return
         }
-
-        const created = await chatService.startSession(selectedSubject)
-        setSessionId(created.session_id)
-        setMessages([
-          {
-            message_id: `intro-${created.session_id}`,
-            role: 'assistant',
-            content: `Namaste! Let's learn ${selectedSubject} together. What would you like to start with?`,
-          },
-        ])
+        await createSession(selectedSubject)
       } catch (bootstrapError) {
         setError(bootstrapError?.response?.data?.detail || 'Unable to load chat')
+      } finally {
+        setLoadingSessions(false)
       }
     }
     bootstrap()
   }, [selectedSubject])
+
+  const handleSelectSession = async (targetSessionId) => {
+    if (!targetSessionId || targetSessionId === sessionId || loadingMessages) return
+    setError('')
+    try {
+      setSessionId(targetSessionId)
+      await loadMessages(targetSessionId)
+    } catch (loadError) {
+      setError(loadError?.response?.data?.detail || 'Unable to load session messages')
+    }
+  }
+
+  const handleCreateSession = async () => {
+    if (loadingSessions || loadingMessages || loading) return
+    setError('')
+    setLoadingSessions(true)
+    try {
+      await createSession(selectedSubject)
+    } catch (createError) {
+      setError(createError?.response?.data?.detail || 'Unable to create new session')
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
 
   const handleSend = async () => {
     if (!input.trim() || !sessionId || loading) return
@@ -57,6 +112,7 @@ function ChatPage() {
           content: response.response,
         },
       ])
+      await loadSessions(selectedSubject, sessionId)
     } catch (sendError) {
       setMessages((prev) => prev.filter((item) => item.message_id !== pendingId))
       setError(sendError?.response?.data?.detail || 'Unable to send message')
@@ -76,35 +132,92 @@ function ChatPage() {
         </div>
       </header>
 
-      {/* Messages area */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="mb-4">
-          <label className="text-xs text-gray-500 block mb-1">Subject</label>
-          <select
-            value={selectedSubject}
-            onChange={(event) => setSelectedSubject(event.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm bg-white"
-          >
-            {['Mathematics', 'Science', 'English', 'Social Science', 'Hindi'].map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </div>
-        {messages.map((message) => (
-          <div
-            key={message.message_id}
-            className={`rounded-xl p-3 max-w-sm mb-3 ${
-              message.role === 'student'
-                ? 'bg-white border ml-auto'
-                : 'bg-orange-100'
-            }`}
-          >
-            <p className="text-gray-700 text-sm whitespace-pre-wrap">{message.content}</p>
+      <div className="flex-1 flex overflow-hidden">
+        <aside className="hidden md:flex md:w-72 border-r bg-white flex-col">
+          <div className="p-4 border-b">
+            <label className="text-xs text-gray-500 block mb-1">Subject</label>
+            <select
+              value={selectedSubject}
+              onChange={(event) => setSelectedSubject(event.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              {SUBJECTS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleCreateSession}
+              disabled={loadingSessions}
+              className="w-full mt-3 bg-orange-500 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-60"
+            >
+              {loadingSessions ? 'Creating...' : 'New chat'}
+            </button>
           </div>
-        ))}
-        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+          <div className="flex-1 overflow-y-auto p-2">
+            {sessions.map((session) => (
+              <button
+                type="button"
+                key={session.session_id}
+                onClick={() => handleSelectSession(session.session_id)}
+                className={`w-full text-left p-3 rounded-lg mb-2 border ${
+                  session.session_id === sessionId ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white'
+                }`}
+              >
+                <p className="text-sm font-medium text-gray-800 truncate">{session.topic || session.subject}</p>
+                <p className="text-xs text-gray-500">{session.message_count || 0} messages</p>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="md:hidden mb-4 flex gap-2">
+            <select
+              value={selectedSubject}
+              onChange={(event) => setSelectedSubject(event.target.value)}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              {SUBJECTS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleCreateSession}
+              disabled={loadingSessions}
+              className="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-60"
+            >
+              New
+            </button>
+          </div>
+          {loadingMessages ? (
+            <p className="text-sm text-gray-500">Loading messages...</p>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.message_id}
+                className={`rounded-xl p-3 max-w-sm mb-3 ${
+                  message.role === 'student'
+                    ? 'bg-white border ml-auto'
+                    : 'bg-orange-100'
+                }`}
+              >
+                <p className="text-gray-700 text-sm whitespace-pre-wrap">{message.content}</p>
+              </div>
+            ))
+          )}
+          {loading && (
+            <div className="rounded-xl p-3 max-w-sm mb-3 bg-orange-100">
+              <p className="text-gray-700 text-sm">Thinking...</p>
+            </div>
+          )}
+          {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        </div>
       </div>
 
       {/* Input area */}

@@ -2,13 +2,13 @@
 Pydantic schemas for Chat endpoints.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 
 class StartSessionRequest(BaseModel):
-    subject: str
+    subject: str = Field(..., min_length=1, max_length=50)
     topic: Optional[str] = None
 
 
@@ -21,7 +21,7 @@ class StartSessionResponse(BaseModel):
 
 class SendMessageRequest(BaseModel):
     session_id: str
-    message: str
+    message: str = Field(..., min_length=1)
     language: Optional[str] = "English"
 
 
@@ -44,3 +44,20 @@ class MessageRecord(BaseModel):
 class SessionMessagesResponse(BaseModel):
     session_id: str
     messages: list[MessageRecord]
+
+
+class SessionSummary(BaseModel):
+    session_id: str
+    subject: str
+    topic: Optional[str]
+    message_count: int
+    xp_earned: int
+    started_at: datetime
+    ended_at: Optional[datetime]
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionSummary]
+    total: int
+    page: int
+    limit: int

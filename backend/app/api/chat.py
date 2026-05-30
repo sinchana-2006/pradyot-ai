@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.chat import (
     StartSessionRequest, StartSessionResponse,
     SendMessageRequest, SendMessageResponse,
-    SessionMessagesResponse,
+    SessionMessagesResponse, SessionListResponse,
 )
 from app.core.dependencies import get_current_user_id
 from app.db.database import get_db
@@ -39,6 +39,13 @@ async def start_session(
     Start a new chat session for a subject.
     """
     try:
+        subject = request.subject.strip()
+        topic = request.topic.strip() if request.topic else None
+        if not subject:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Subject is required",
+            )
         db = get_db()
         profile = _get_student_profile(user_id)
         insert_res = (
@@ -46,8 +53,8 @@ async def start_session(
             .insert(
                 {
                     "student_id": profile["id"],
-                    "subject": request.subject,
-                    "topic": request.topic,
+                    "subject": subject,
+                    "topic": topic,
                 }
             )
             .execute()
@@ -82,6 +89,12 @@ async def send_message(
     Send a message and receive an AI tutor response.
     """
     try:
+        message_text = request.message.strip()
+        if not message_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Message cannot be empty",
+            )
         db = get_db()
         profile = _get_student_profile(user_id)
         session_res = (
@@ -105,13 +118,18 @@ async def send_message(
                 {
                     "session_id": request.session_id,
                     "role": "student",
-                    "content": request.message,
+                    "content": message_text,
                     "language": request.language,
                 }
             )
             .execute()
         )
         student_message = (student_message_res.data or [None])[0]
+        if not student_message:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to store student message",
+            )
 
         progress_res = (
             db.table("student_progress")
@@ -131,7 +149,7 @@ async def send_message(
             subject=session["subject"],
             weak_topics=progress.get("weak_topics") or [],
             context=context,
-            message=request.message,
+            message=message_text,
         )
 
         xp_earned = session_service.calculate_xp(
@@ -184,7 +202,7 @@ async def send_message(
         ) from exc
 
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(
     page: int = 1,
     limit: int = 10,
@@ -199,6 +217,13 @@ async def list_sessions(
     try:
         db = get_db()
         profile = _get_student_profile(user_id)
+        total_query = db.table("chat_sessions").select("id", count="exact").eq(
+            "student_id", profile["id"]
+        )
+        if subject:
+            total_query = total_query.eq("subject", subject)
+        total_res = total_query.execute()
+
         query = (
             db.table("chat_sessions")
             .select("*")
@@ -221,7 +246,12 @@ async def list_sessions(
             }
             for row in (res.data or [])
         ]
-        return {"sessions": sessions, "total": len(sessions), "page": page, "limit": limit}
+        return {
+            "sessions": sessions,
+            "total": total_res.count or 0,
+            "page": page,
+            "limit": limit,
+        }
     except HTTPException:
         raise
     except Exception as exc:

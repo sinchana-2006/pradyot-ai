@@ -23,12 +23,12 @@ class SessionService:
             db.table("messages")
             .select("role,content,created_at")
             .eq("session_id", session_id)
-            .order("created_at", desc=False)
+            .order("created_at", desc=True)
             .limit(self.MAX_CONTEXT_MESSAGES)
             .execute()
         )
         lines = []
-        for row in (res.data or []):
+        for row in reversed(res.data or []):
             role = row.get("role", "unknown")
             content = row.get("content", "")
             lines.append(f"{role}: {content}")
