@@ -3,6 +3,7 @@ Application configuration — reads from environment variables.
 """
 
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from typing import List
 
 
@@ -34,6 +35,13 @@ class Settings(BaseSettings):
 
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173"]
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_origins(cls, value):
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
     # Logging
     LOG_LEVEL: str = "INFO"

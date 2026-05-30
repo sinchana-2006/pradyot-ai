@@ -1,8 +1,68 @@
-/**
- * Chat Page — Main AI tutor chat interface
- * TODO (Phase 1): Implement full chat UI with message list, input, and AI responses
- */
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { chatService } from '../services/chatService'
+
 function ChatPage() {
+  const { subject } = useParams()
+  const [sessionId, setSessionId] = useState(null)
+  const [selectedSubject, setSelectedSubject] = useState(subject || 'Mathematics')
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      try {
+        const sessionsResponse = await chatService.getSessions(1, 1, selectedSubject)
+        const latestSession = sessionsResponse.sessions?.[0]
+        if (latestSession?.session_id) {
+          setSessionId(latestSession.session_id)
+          const history = await chatService.getSessionMessages(latestSession.session_id)
+          setMessages(history.messages || [])
+          return
+        }
+
+        const created = await chatService.startSession(selectedSubject)
+        setSessionId(created.session_id)
+        setMessages([
+          {
+            message_id: `intro-${created.session_id}`,
+            role: 'assistant',
+            content: `Namaste! Let's learn ${selectedSubject} together. What would you like to start with?`,
+          },
+        ])
+      } catch (bootstrapError) {
+        setError(bootstrapError?.response?.data?.detail || 'Unable to load chat')
+      }
+    }
+    bootstrap()
+  }, [selectedSubject])
+
+  const handleSend = async () => {
+    if (!input.trim() || !sessionId || loading) return
+    const message = input.trim()
+    setInput('')
+    setMessages((prev) => [...prev, { message_id: crypto.randomUUID(), role: 'student', content: message }])
+    setLoading(true)
+    setError('')
+    try {
+      const response = await chatService.sendMessage(sessionId, message, 'English')
+      setMessages((prev) => [
+        ...prev,
+        {
+          message_id: response.message_id,
+          role: 'assistant',
+          content: response.response,
+        },
+      ])
+    } catch (sendError) {
+      setError(sendError?.response?.data?.detail || 'Unable to send message')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -16,16 +76,33 @@ function ChatPage() {
 
       {/* Messages area */}
       <div className="flex-1 p-4 overflow-y-auto">
-        {/* Placeholder message */}
-        <div className="bg-orange-100 rounded-xl p-4 max-w-sm">
-          <p className="text-gray-700 text-sm">
-            👋 Namaste! I'm Pradyot, your AI mentor. Which subject would you
-            like to study today?
-          </p>
+        <div className="mb-4">
+          <label className="text-xs text-gray-500 block mb-1">Subject</label>
+          <select
+            value={selectedSubject}
+            onChange={(event) => setSelectedSubject(event.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm bg-white"
+          >
+            {['Mathematics', 'Science', 'English', 'Social Science', 'Hindi'].map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </div>
-        <p className="text-center text-xs text-gray-400 mt-8">
-          Full chat implementation coming in Phase 1
-        </p>
+        {messages.map((message) => (
+          <div
+            key={message.message_id}
+            className={`rounded-xl p-3 max-w-sm mb-3 ${
+              message.role === 'student'
+                ? 'bg-white border ml-auto'
+                : 'bg-orange-100'
+            }`}
+          >
+            <p className="text-gray-700 text-sm whitespace-pre-wrap">{message.content}</p>
+          </div>
+        ))}
+        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
       </div>
 
       {/* Input area */}
@@ -33,14 +110,22 @@ function ChatPage() {
         <input
           type="text"
           placeholder="Ask me anything..."
-          disabled
-          className="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              handleSend()
+            }
+          }}
+          className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white"
         />
         <button
-          disabled
-          className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm opacity-50 cursor-not-allowed"
+          onClick={handleSend}
+          disabled={loading}
+          className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-60"
         >
-          Send
+          {loading ? '...' : 'Send'}
         </button>
       </div>
     </div>
